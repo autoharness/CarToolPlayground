@@ -9,6 +9,8 @@ data class LlmInferenceOptions(
     val topP: Float = 1.0f,
     /** Randomness when decoding the next token. A value of 0.0f means greedy decoding. */
     val temperature: Float = 0.8f,
+    /** Turns on or disables the thinking process. */
+    val thinkingMode: Boolean = true,
     /** Initial instruction given to the model to set its behavior, role, and constraints for the entire conversation. */
     val systemPrompt: String? = null,
     /** List of [FunctionDefinition]s that the model can call to perform actions or retrieve external information. */

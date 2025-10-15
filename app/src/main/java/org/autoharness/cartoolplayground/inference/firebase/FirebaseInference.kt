@@ -13,6 +13,7 @@ import com.google.firebase.ai.type.GenerativeBackend
 import com.google.firebase.ai.type.Schema
 import com.google.firebase.ai.type.Tool
 import com.google.firebase.ai.type.content
+import com.google.firebase.ai.type.thinkingConfig
 import org.autoharness.cartoolplayground.inference.api.DataType
 import org.autoharness.cartoolplayground.inference.api.FunctionCall
 import org.autoharness.cartoolplayground.inference.api.FunctionDefinition
@@ -44,6 +45,10 @@ class FirebaseInference : LlmInferenceEngine {
             topK = options.topK
             topP = options.topP
             temperature = options.temperature
+            thinkingConfig = thinkingConfig {
+                thinkingBudget = if (options.thinkingMode) -1 else 0
+                includeThoughts = false
+            }
         }.build()
 
         val firebaseTools = options.tools

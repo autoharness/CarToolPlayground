@@ -11,6 +11,7 @@ data class LlmSettings(
     val topK: Int = 40,
     val topP: Float = 1.0f,
     val temperature: Float = 0.8f,
+    val thinkingMode: Boolean = true,
     val showDebugInfo: Boolean = true,
 )
 
