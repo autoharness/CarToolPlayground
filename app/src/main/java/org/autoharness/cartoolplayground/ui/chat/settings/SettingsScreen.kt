@@ -41,6 +41,7 @@ fun SettingsScreen(
     var topK by remember { mutableIntStateOf(currentSettings.topK) }
     var topP by remember { mutableFloatStateOf(currentSettings.topP) }
     var temperature by remember { mutableFloatStateOf(currentSettings.temperature) }
+    var thinkingMode by remember { mutableStateOf(currentSettings.thinkingMode) }
     var showDebugInfo by remember { mutableStateOf(currentSettings.showDebugInfo) }
 
     /* ==== The settings screen layout. ==== */
@@ -86,7 +87,7 @@ fun SettingsScreen(
                             temperature = it
                         }
                     }
-                    // Checkbox: Show debug info or not.
+                    // Checkbox: Show debug info, enable think mode.
                     item {
                         Row(
                             modifier = Modifier
@@ -100,6 +101,21 @@ fun SettingsScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Show Debug Info in Conversation (e.g., function call procedures)")
+                        }
+                    }
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { thinkingMode = !thinkingMode },
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(
+                                checked = thinkingMode,
+                                onCheckedChange = { thinkingMode = it },
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Thinking Mode")
                         }
                     }
                 }
@@ -120,6 +136,7 @@ fun SettingsScreen(
                             topK = topK,
                             topP = topP,
                             temperature = temperature,
+                            thinkingMode = thinkingMode,
                             showDebugInfo = showDebugInfo,
                         )
                         onSave(newSettings)

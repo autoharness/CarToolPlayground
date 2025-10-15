@@ -240,7 +240,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
                     is LlmResponse.PendingFunctionCalls -> {
                         val formattedCalls = currentResponse.calls.joinToString("\n") {
-                            "Model responded with function call: ${it.name} args: ${it.args}"
+                            "Function: ${it.name} args: ${it.args}"
                         }
                         _messages.add(
                             ChatMessage(
