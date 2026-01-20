@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import androidx.appfunctions.AppFunctionManagerCompat
 import androidx.appfunctions.AppFunctionSearchSpec
+import androidx.appfunctions.metadata.AppFunctionMetadata
 import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -108,11 +109,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val functionExecutor = GenericFunctionExecutor(appFunctionManagerCompat)
 
-    private var functionDefinitionMap: Map<String, FunctionDefinition> = emptyMap()
+    private var availableFunctions: Map<String, Pair<FunctionDefinition, AppFunctionMetadata>> =
+        emptyMap()
 
     private var llmSettings: LlmSettings = LlmSettings()
     private var systemPrompt: String = ""
-    private var tools: List<FunctionDefinition> = emptyList()
+    private var tools: Map<FunctionDefinition, AppFunctionMetadata> = emptyMap()
 
     fun startChat() {
         startInternal()
@@ -183,7 +185,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private suspend fun loadModel(
         settings: LlmSettings,
         systemPrompt: String?,
-        tools: List<FunctionDefinition>?,
+        tools: Map<FunctionDefinition, AppFunctionMetadata>?,
     ) {
         _uiState.value = State.Loading
         try {
@@ -195,10 +197,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         topP = settings.topP,
                         temperature = settings.temperature,
                         systemPrompt = systemPrompt,
-                        tools = tools,
+                        tools = tools?.keys?.toList(),
                     ),
                 )
-                functionDefinitionMap = tools?.associateBy { it.shortName } ?: emptyMap()
+                availableFunctions = tools?.entries?.associate {
+                    it.key.shortName to (it.key to it.value)
+                } ?: emptyMap()
                 _currentModelTag.value = "firebase-ai"
             }
             _uiState.value = State.Loaded
@@ -282,10 +286,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     ): List<FunctionResponse> = coroutineScope {
         calls.map { functionCall ->
             async {
-                functionDefinitionMap[functionCall.name]?.let { definition ->
-                    functionExecutor.executeAppFunction(
-                        targetPackageName = TARGET_PACKAGE,
-                        functionDeclaration = definition,
+                availableFunctions[functionCall.name]?.let { functionData ->
+                    val (definition, metadata) = functionData
+                    executeAppFunction(
+                        function = definition,
+                        metadata = metadata,
                         arguments = functionCall.args,
                     ).fold(
                         onSuccess = { result ->
@@ -347,14 +352,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     packageList.firstOrNull()?.let { metadata ->
                         runCatching {
                             Log.i(TAG, "Received ${metadata.appFunctions.size} functions")
-                            val toolDefinitions = metadata.appFunctions.toFunctionDefinitions()
+                            val toolDefinitionsMap = metadata.appFunctions.toFunctionDefinitions()
 
-                            val getPropertyListTool =
-                                toolDefinitions.find { it.shortName == FUNCTION_GET_PROPERTY_LIST }
+                            val getPropertyListToolEntry =
+                                toolDefinitionsMap.entries.find { it.key.shortName == FUNCTION_GET_PROPERTY_LIST }
                                     ?: throw IllegalStateException("Required tool '$FUNCTION_GET_PROPERTY_LIST' not found.")
 
-                            val propertiesJson = executeGetPropertyList(getPropertyListTool)
-                                ?: throw IllegalStateException("Execution of '$FUNCTION_GET_PROPERTY_LIST' failed or returned null.")
+                            val getPropertyListDef = getPropertyListToolEntry.key
+                            val getPropertyListMetadata = getPropertyListToolEntry.value
+
+                            val propertiesJson =
+                                executeGetPropertyList(getPropertyListDef, getPropertyListMetadata)
+                                    ?: throw IllegalStateException("Execution of '$FUNCTION_GET_PROPERTY_LIST' failed or returned null.")
 
                             _carPropertyProfiles.emit(
                                 Json.decodeFromString<List<CarPropertyProfile>>(
@@ -362,9 +371,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                 ),
                             )
                             systemPrompt =
-                                createSystemPrompt(propertiesJson, getPropertyListTool.description)
-                            tools =
-                                toolDefinitions.filterNot { it.shortName == FUNCTION_GET_PROPERTY_LIST }
+                                createSystemPrompt(propertiesJson, getPropertyListDef.description)
+                            tools = toolDefinitionsMap.filterKeys {
+                                it.shortName != FUNCTION_GET_PROPERTY_LIST
+                            }
 
                             loadModel(llmSettings, systemPrompt, tools)
                         }.onFailure { exception ->
@@ -376,8 +386,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private suspend fun executeGetPropertyList(getPropertyListTool: FunctionDefinition): String? {
-        val propertyListResult = executeAppFunction(getPropertyListTool, emptyMap())
+    private suspend fun executeGetPropertyList(
+        getPropertyListTool: FunctionDefinition,
+        metadata: AppFunctionMetadata,
+    ): String? {
+        val propertyListResult = executeAppFunction(getPropertyListTool, metadata, emptyMap())
 
         return propertyListResult.getOrNull()
             .let { it as? JsonPrimitive }
@@ -405,10 +418,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private suspend fun executeAppFunction(
         function: FunctionDefinition,
+        metadata: AppFunctionMetadata,
         arguments: Map<String, JsonElement>,
     ): Result<JsonElement> = functionExecutor.executeAppFunction(
         targetPackageName = TARGET_PACKAGE,
-        functionDeclaration = function,
+        appFunctionMetadata = metadata,
+        functionDefinition = function,
         arguments = arguments,
     )
 }
