@@ -18,9 +18,7 @@ import org.autoharness.cartoolplayground.inference.api.DataType
 import org.autoharness.cartoolplayground.inference.api.FunctionDefinition
 import org.autoharness.cartoolplayground.inference.api.FunctionSchema
 
-fun List<AppFunctionMetadata>.toFunctionDefinitions(): List<FunctionDefinition> = this.map {
-    it.toFunctionDefinition()
-}
+fun List<AppFunctionMetadata>.toFunctionDefinitions(): Map<FunctionDefinition, AppFunctionMetadata> = this.associateBy { it.toFunctionDefinition() }
 
 private fun AppFunctionMetadata.toFunctionDefinition(): FunctionDefinition = FunctionDefinition(
     fullName = this.id,
