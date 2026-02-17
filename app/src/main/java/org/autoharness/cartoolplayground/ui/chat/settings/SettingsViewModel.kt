@@ -5,9 +5,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+enum class InferenceEngine {
+    FIREBASE,
+    LITE_RT_LM,
+}
+
 /** Represents the configuration for loading and running a Large Language Model. */
 data class LlmSettings(
-    val maxTokens: Int = 2048,
+    val engine: InferenceEngine = InferenceEngine.FIREBASE,
+    val modelPath: String = "",
+    val maxTokens: Int = 15000,
     val topK: Int = 40,
     val topP: Float = 1.0f,
     val temperature: Float = 0.8f,

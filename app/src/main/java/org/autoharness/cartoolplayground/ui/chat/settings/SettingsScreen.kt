@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import java.io.File
 
 @Composable
 fun SettingsScreen(
@@ -37,12 +38,25 @@ fun SettingsScreen(
     onSave: (LlmSettings) -> Unit,
     onCancel: () -> Unit,
 ) {
+    var engine by remember { mutableStateOf(currentSettings.engine) }
+    var modelPath by remember { mutableStateOf(currentSettings.modelPath) }
     var maxTokens by remember { mutableStateOf(currentSettings.maxTokens.toString()) }
     var topK by remember { mutableIntStateOf(currentSettings.topK) }
     var topP by remember { mutableFloatStateOf(currentSettings.topP) }
     var temperature by remember { mutableFloatStateOf(currentSettings.temperature) }
     var thinkingMode by remember { mutableStateOf(currentSettings.thinkingMode) }
     var showDebugInfo by remember { mutableStateOf(currentSettings.showDebugInfo) }
+    var showFileSelector by remember { mutableStateOf(false) }
+
+    if (showFileSelector) {
+        FileSelectorDialog(
+            onFileSelected = {
+                modelPath = it.absolutePath
+                showFileSelector = false
+            },
+            onDismiss = { showFileSelector = false },
+        )
+    }
 
     /* ==== The settings screen layout. ==== */
     Dialog(onDismissRequest = onCancel) {
@@ -50,7 +64,7 @@ fun SettingsScreen(
             shape = MaterialTheme.shapes.large,
             modifier = Modifier
                 .padding(16.dp)
-                .heightIn(max = 600.dp),
+                .heightIn(max = 700.dp),
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
@@ -62,6 +76,25 @@ fun SettingsScreen(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
+                    // Engine Selection.
+                    item {
+                        SettingsEnumDropdown(
+                            label = "Inference Engine",
+                            items = InferenceEngine.entries,
+                            selectedItem = engine,
+                            onItemSelected = { engine = it },
+                        )
+                    }
+
+                    // Model Path.
+                    if (engine == InferenceEngine.LITE_RT_LM) {
+                        item {
+                            SettingsItem(label = "Model File", value = File(modelPath).name) {
+                                showFileSelector = true
+                            }
+                        }
+                    }
+
                     // Max Tokens input.
                     item {
                         OutlinedTextField(
@@ -132,6 +165,8 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(onClick = {
                         val newSettings = LlmSettings(
+                            engine = engine,
+                            modelPath = modelPath,
                             maxTokens = maxTokens.toIntOrNull() ?: currentSettings.maxTokens,
                             topK = topK,
                             topP = topP,

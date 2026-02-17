@@ -10,13 +10,19 @@ sealed interface LlmResponse {
      * @property text The content of the text response.
      */
     data class TextContent(val text: String) : LlmResponse
+}
 
+/**
+ * Interface for handling tool/function calls triggered by the LLM.
+ */
+interface FunctionCallback {
     /**
-     * A response indicating the LLM wants to call one or more functions.
+     * Processes a [FunctionCall] and returns the corresponding [FunctionResponse].
      *
-     * @property calls The list of function calls requested by the LLM.
+     * @param call The function name and arguments provided by the LLM.
+     * @return The result of the function execution to be sent back to the LLM.
      */
-    data class PendingFunctionCalls(val calls: List<FunctionCall>) : LlmResponse
+    suspend fun execute(call: FunctionCall): FunctionResponse
 }
 
 /**
@@ -27,8 +33,9 @@ interface LlmInferenceEngine {
      * Loads and initializes the model with the given options.
      *
      * @param options The configuration for the LLM.
+     * @param callback The handler of the function calling.
      */
-    suspend fun load(options: LlmInferenceOptions)
+    suspend fun load(options: LlmInferenceOptions, callback: FunctionCallback?)
 
     /**
      * Unloads the model and releases its resources.
@@ -42,12 +49,4 @@ interface LlmInferenceEngine {
      * @return The model's response.
      */
     suspend fun sendMessage(prompt: String): LlmResponse
-
-    /**
-     * Sends the result of function calls back to the model.
-     *
-     * @param results The result from the function calls.
-     * @return The model's next response after receiving the function results.
-     */
-    suspend fun sendFunctionCallResults(results: List<FunctionResponse>): LlmResponse
 }
