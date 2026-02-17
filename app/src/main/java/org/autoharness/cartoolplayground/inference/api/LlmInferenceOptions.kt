@@ -1,8 +1,10 @@
 package org.autoharness.cartoolplayground.inference.api
 
 data class LlmInferenceOptions(
+    /** Path to the model for the task. */
+    val modelPath: String = "",
     /** The total number of input + output tokens the model needs to handle. */
-    val maxTokens: Int = 2048,
+    val maxTokens: Int = 15000,
     /** Top-K number of tokens to be sampled from for each decoding step. */
     val topK: Int = 40,
     /** Top-P (nucleus) sampling parameter. */
