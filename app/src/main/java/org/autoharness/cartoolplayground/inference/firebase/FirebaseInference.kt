@@ -14,12 +14,8 @@ import com.google.firebase.ai.type.Schema
 import com.google.firebase.ai.type.Tool
 import com.google.firebase.ai.type.content
 import com.google.firebase.ai.type.thinkingConfig
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import org.autoharness.cartoolplayground.inference.api.DataType
 import org.autoharness.cartoolplayground.inference.api.FunctionCall
-import org.autoharness.cartoolplayground.inference.api.FunctionCallback
 import org.autoharness.cartoolplayground.inference.api.FunctionDefinition
 import org.autoharness.cartoolplayground.inference.api.FunctionResponse
 import org.autoharness.cartoolplayground.inference.api.FunctionSchema
@@ -34,21 +30,17 @@ class FirebaseInference : LlmInferenceEngine {
         // https://firebase.google.com/docs/ai-logic/models
         // https://firebase.google.com/docs/ai-logic/quotas
         private const val MODEL_NAME = "gemini-2.5-flash-lite-preview-09-2025"
-        private const val LLM_INTERACTION_MAX_TURNS = 10
     }
 
     private var chatSession: Chat? = null
-    private var functionCallback: FunctionCallback? = null
 
-    override suspend fun load(options: LlmInferenceOptions, callback: FunctionCallback?) {
+    override suspend fun load(options: LlmInferenceOptions) {
         val generativeModel = buildGenerativeModel(options)
         chatSession = generativeModel.startChat()
-        functionCallback = callback
     }
 
     private fun buildGenerativeModel(options: LlmInferenceOptions): GenerativeModel {
         val generationConfig = GenerationConfig.builder().apply {
-            // NOTE: firebase only supports setting the max output tokens.
             maxOutputTokens = options.maxTokens
             topK = options.topK
             topP = options.topP
@@ -73,58 +65,29 @@ class FirebaseInference : LlmInferenceEngine {
 
     override suspend fun unload() {
         chatSession = null
-        functionCallback = null
     }
 
-    override suspend fun sendMessage(prompt: String): LlmResponse = sendChatMessage(content { text(prompt) }, currentTurn = 0)
+    override suspend fun sendMessage(prompt: String): LlmResponse = sendChatMessage(content { text(prompt) })
 
-    private suspend fun sendChatMessage(message: Content, currentTurn: Int): LlmResponse {
-        if (currentTurn > LLM_INTERACTION_MAX_TURNS) {
-            throw IllegalStateException("Exceeded maximum tool call turns ($LLM_INTERACTION_MAX_TURNS)")
-        }
-
-        val response = requireNotNull(chatSession) { "Model is not loaded." }
-            .sendMessage(message)
-
-        return response.toLlmResponse(currentTurn)
-    }
-
-    private suspend fun GenerateContentResponse.toLlmResponse(currentTurn: Int): LlmResponse {
-        if (functionCalls.isNotEmpty()) {
-            val functionResponses = handleFunctionCalls(
-                functionCalls.map {
-                    FunctionCall(
-                        name = it.name,
-                        args = it.args,
-                    )
-                },
-            )
-            return sendFunctionCallResults(functionResponses, currentTurn + 1)
-        } else {
-            return LlmResponse.TextContent(text ?: "")
-        }
-    }
-
-    private suspend fun sendFunctionCallResults(
-        results: List<FunctionResponse?>,
-        currentTurn: Int,
-    ): LlmResponse {
+    override suspend fun sendFunctionCallResults(results: List<FunctionResponse>): LlmResponse {
         val message = content("function") {
             results.forEach { result ->
-                result?.let {
-                    part(FunctionResponsePart(it.name, it.response))
-                }
+                part(FunctionResponsePart(result.name, result.response))
             }
         }
-        return sendChatMessage(message, currentTurn)
+        return sendChatMessage(message)
     }
 
-    private suspend fun handleFunctionCalls(calls: List<FunctionCall>): List<FunctionResponse?> = coroutineScope {
-        calls.map { functionCall ->
-            async {
-                functionCallback?.execute(functionCall)
-            }
-        }.awaitAll()
+    private suspend fun sendChatMessage(message: Content): LlmResponse = requireNotNull(chatSession) { "Model is not loaded." }
+        .sendMessage(message)
+        .toLlmResponse()
+
+    private fun GenerateContentResponse.toLlmResponse(): LlmResponse = if (functionCalls.isNotEmpty()) {
+        LlmResponse.PendingFunctionCalls(
+            functionCalls.map { FunctionCall(name = it.name, args = it.args) },
+        )
+    } else {
+        LlmResponse.TextContent(text ?: "")
     }
 }
 
