@@ -12,6 +12,7 @@
 local.properties
 .env
 *.rej
+*.orig
 .aider*
 env/
 venv/

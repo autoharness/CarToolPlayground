@@ -9,6 +9,9 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,7 +29,6 @@ import kotlinx.serialization.json.buildJsonObject
 import org.autoharness.cartoolplayground.appfunctions.GenericFunctionExecutor
 import org.autoharness.cartoolplayground.data.property.CarPropertyProfile
 import org.autoharness.cartoolplayground.inference.api.FunctionCall
-import org.autoharness.cartoolplayground.inference.api.FunctionCallback
 import org.autoharness.cartoolplayground.inference.api.FunctionDefinition
 import org.autoharness.cartoolplayground.inference.api.FunctionResponse
 import org.autoharness.cartoolplayground.inference.api.LlmInferenceEngine
@@ -60,6 +62,7 @@ data class ChatMessage(
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
     companion object {
         private const val TAG = "ChatViewModel"
+        private const val LLM_INTERACTION_MAX_TURNS = 10
         private const val TARGET_PACKAGE = "org.autoharness.cartool"
         private const val TARGET_SCHEMA_CATEGORY = "car-property-full"
         private const val FUNCTION_GET_PROPERTY_LIST = "getPropertyList"
@@ -114,9 +117,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private var llmSettings: LlmSettings = LlmSettings()
     private var systemPrompt: String = ""
     private var tools: Map<FunctionDefinition, AppFunctionMetadata> = emptyMap()
-    private val functionCallback = object : FunctionCallback {
-        override suspend fun execute(call: FunctionCall): FunctionResponse = handleFunctionCall(call)
-    }
 
     fun startChat() {
         startInternal()
@@ -195,7 +195,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 InferenceEngine.FIREBASE -> FirebaseInference()
                 InferenceEngine.LITE_RT_LM -> LiteRtLmInference(getApplication())
             }
-
             llmEngine = engine.apply {
                 load(
                     LlmInferenceOptions(
@@ -207,12 +206,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         systemPrompt = systemPrompt,
                         tools = tools?.keys?.toList(),
                     ),
-                    functionCallback,
                 )
                 availableFunctions = tools?.entries?.associate {
                     it.key.shortName to (it.key to it.value)
                 } ?: emptyMap()
-
                 _currentModelTag.value = when (settings.engine) {
                     InferenceEngine.FIREBASE -> "firebase-ai"
                     InferenceEngine.LITE_RT_LM -> "litert-lm"
@@ -242,17 +239,48 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val currentInstance = checkNotNull(llmEngine) { "Engine not loaded." }
 
         try {
-            when (val currentResponse = currentInstance.sendMessage(initialPrompt)) {
-                is LlmResponse.TextContent -> {
-                    _messages.add(
-                        ChatMessage(
-                            currentResponse.text,
-                            type = ChatMessage.MessageType.MODEL,
-                        ),
-                    )
-                    return
+            var currentResponse = currentInstance.sendMessage(initialPrompt)
+
+            for (turn in 1..LLM_INTERACTION_MAX_TURNS) {
+                when (currentResponse) {
+                    is LlmResponse.TextContent -> {
+                        _messages.add(
+                            ChatMessage(
+                                currentResponse.text,
+                                type = ChatMessage.MessageType.MODEL,
+                            ),
+                        )
+                        return
+                    }
+
+                    is LlmResponse.PendingFunctionCalls -> {
+                        val formattedCalls = currentResponse.calls.joinToString("\n") {
+                            "Function: ${it.name} args: ${it.args}"
+                        }
+                        _messages.add(
+                            ChatMessage(
+                                formattedCalls,
+                                type = ChatMessage.MessageType.DEBUG,
+                            ),
+                        )
+
+                        val functionResults = handleFunctionCalls(currentResponse.calls)
+                        _messages.add(
+                            ChatMessage(
+                                functionResults.toString(),
+                                type = ChatMessage.MessageType.DEBUG,
+                            ),
+                        )
+                        currentResponse = currentInstance.sendFunctionCallResults(functionResults)
+                    }
                 }
             }
+            _messages.add(
+                ChatMessage(
+                    "LLM loop reached max turns.",
+                    type = ChatMessage.MessageType.WARNING,
+                ),
+            )
         } catch (e: Exception) {
             Log.e(TAG, "Error during LLM loop", e)
             _messages.add(
@@ -264,43 +292,36 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private suspend fun handleFunctionCall(functionCall: FunctionCall): FunctionResponse {
-        _messages.add(
-            ChatMessage(
-                "Function: ${functionCall.name} args: ${functionCall.args}",
-                type = ChatMessage.MessageType.DEBUG,
-            ),
-        )
-        val response = availableFunctions[functionCall.name]?.let { functionData ->
-            val (definition, metadata) = functionData
-            executeAppFunction(
-                function = definition,
-                metadata = metadata,
-                arguments = functionCall.args,
-            ).fold(
-                onSuccess = { result ->
-                    FunctionResponse(functionCall.name, createSuccessResponse(result))
-                },
-                onFailure = { error ->
-                    Log.w(TAG, "Function '${functionCall.name}' failed", error)
+    private suspend fun handleFunctionCalls(
+        calls: List<FunctionCall>,
+    ): List<FunctionResponse> = coroutineScope {
+        calls.map { functionCall ->
+            async {
+                availableFunctions[functionCall.name]?.let { functionData ->
+                    val (definition, metadata) = functionData
+                    executeAppFunction(
+                        function = definition,
+                        metadata = metadata,
+                        arguments = functionCall.args,
+                    ).fold(
+                        onSuccess = { result ->
+                            FunctionResponse(functionCall.name, createSuccessResponse(result))
+                        },
+                        onFailure = { error ->
+                            Log.w(TAG, "Function '${functionCall.name}' failed", error)
+                            val errorJson =
+                                createErrorResponse(error.message ?: "Unknown execution error")
+                            FunctionResponse(functionCall.name, errorJson)
+                        },
+                    )
+                } ?: run {
+                    Log.w(TAG, "Model responded with unknown function call: ${functionCall.name}")
                     val errorJson =
-                        createErrorResponse(error.message ?: "Unknown execution error")
+                        createErrorResponse("Function '${functionCall.name}' is not defined.")
                     FunctionResponse(functionCall.name, errorJson)
-                },
-            )
-        } ?: run {
-            Log.w(TAG, "Model responded with unknown function call: ${functionCall.name}")
-            val errorJson =
-                createErrorResponse("Function '${functionCall.name}' is not defined.")
-            FunctionResponse(functionCall.name, errorJson)
-        }
-        _messages.add(
-            ChatMessage(
-                response.toString(),
-                type = ChatMessage.MessageType.DEBUG,
-            ),
-        )
-        return response
+                }
+            }
+        }.awaitAll()
     }
 
     private fun createSuccessResponse(result: JsonElement): JsonObject = if (result is JsonObject) {
