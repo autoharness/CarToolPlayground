@@ -39,10 +39,12 @@ class LiteRtLmInference(private val context: Context) : LlmInferenceEngine {
         val options: LlmInferenceOptions,
     )
 
+    private val singleThreadDispatcher = Dispatchers.IO.limitedParallelism(1)
+
     private var instance: LlmModelInstance? = null
 
     override suspend fun load(options: LlmInferenceOptions) {
-        withContext(Dispatchers.IO) {
+        withContext(singleThreadDispatcher) {
             cleanUp()
             val preferredBackend = Backend.CPU
 
@@ -66,7 +68,7 @@ class LiteRtLmInference(private val context: Context) : LlmInferenceEngine {
     }
 
     override suspend fun unload() {
-        withContext(Dispatchers.IO) {
+        withContext(singleThreadDispatcher) {
             cleanUp()
         }
     }
@@ -126,7 +128,7 @@ class LiteRtLmInference(private val context: Context) : LlmInferenceEngine {
         return sendChatMessage(Message.tool(Contents.of(toolResponses)))
     }
 
-    private suspend fun sendChatMessage(message: Message): LlmResponse = withContext(Dispatchers.IO) {
+    private suspend fun sendChatMessage(message: Message): LlmResponse = withContext(singleThreadDispatcher) {
         val currentInstance = checkNotNull(instance) { "LiteRT-LM model not loaded." }
         val session = currentInstance.session ?: createNewSession(currentInstance)
         session.sendMessage(message).toLlmResponse()
