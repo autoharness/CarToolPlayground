@@ -128,8 +128,7 @@ class LiteRtLmInference(private val context: Context) : LlmInferenceEngine {
 
     private suspend fun sendChatMessage(message: Message): LlmResponse = withContext(Dispatchers.IO) {
         val currentInstance = checkNotNull(instance) { "LiteRT-LM model not loaded." }
-        // TODO: keep session.
-        val session = createNewSession(currentInstance)
+        val session = currentInstance.session ?: createNewSession(currentInstance)
         session.sendMessage(message).toLlmResponse()
     }
 
