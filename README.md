@@ -73,7 +73,19 @@ adb install -g app-debug.apk
 
 ## Large Language Model
 
+### API-based Model
+
 **Firebase AI Logic** is currently integrated. For a list of available models, see [Learn about supported models](https://firebase.google.com/docs/ai-logic/models). The specific model utilized can be changed in [`FirebaseInference.kt`](app/src/main/java/org/autoharness/cartoolplayground/inference/firebase/FirebaseInference.kt).
+
+### On-device Model
+
+The application supports local inference via [LiteRT-LM](https://ai.google.dev/edge/litert-lm). Push the model file to the application's external storage directory. On Android Automotive (AAOS) device, the path is typically user-specific, for example:
+
+```
+adb push qwen3_4b_q8.litertlm /mnt/user/10/emulated/10/Android/data/org.autoharness.cartoolplayground/files
+```
+
+Select LiteRT-LM as the preferred inference engine and choose the uploaded model from the file selection menu in the settings.
 
 ## Dataset
 
@@ -88,3 +100,5 @@ Take a look at the [`CONTRIBUTING.md`](CONTRIBUTING.md).
 - [Firebase AI Logic](https://firebase.google.com/docs/ai-logic)
 - [AppFunctionsPilot](https://github.com/FilipFan/AppFunctionsPilot)
 - [PolyEngineInfer](https://github.com/FilipFan/PolyEngineInfer)
+- [LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM)
+
