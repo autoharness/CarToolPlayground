@@ -2,7 +2,7 @@ package org.autoharness.cartoolplayground.appfunctions
 
 import android.util.Log
 import androidx.appfunctions.AppFunctionData
-import androidx.appfunctions.AppFunctionManagerCompat
+import androidx.appfunctions.AppFunctionManager
 import androidx.appfunctions.ExecuteAppFunctionRequest
 import androidx.appfunctions.ExecuteAppFunctionResponse
 import androidx.appfunctions.metadata.AppFunctionArrayTypeMetadata
@@ -28,7 +28,7 @@ import org.autoharness.cartoolplayground.inference.api.DataType
 import org.autoharness.cartoolplayground.inference.api.FunctionDefinition
 import org.autoharness.cartoolplayground.inference.api.FunctionSchema
 
-class GenericFunctionExecutor(private val manager: AppFunctionManagerCompat) {
+class GenericFunctionExecutor(private val manager: AppFunctionManager) {
     companion object {
         private const val TAG = "GenericFunctionExecutor"
     }

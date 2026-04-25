@@ -29,7 +29,7 @@ class FirebaseInference : LlmInferenceEngine {
         // https://ai.google.dev/gemini-api/docs/models
         // https://firebase.google.com/docs/ai-logic/models
         // https://firebase.google.com/docs/ai-logic/quotas
-        private const val MODEL_NAME = "gemini-2.5-flash-lite-preview-09-2025"
+        private const val MODEL_NAME = "gemini-2.5-flash-lite"
     }
 
     private var chatSession: Chat? = null

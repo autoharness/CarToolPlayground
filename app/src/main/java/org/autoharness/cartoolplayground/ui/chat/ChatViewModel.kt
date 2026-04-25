@@ -2,7 +2,7 @@ package org.autoharness.cartoolplayground.ui.chat
 
 import android.app.Application
 import android.util.Log
-import androidx.appfunctions.AppFunctionManagerCompat
+import androidx.appfunctions.AppFunctionManager
 import androidx.appfunctions.AppFunctionSearchSpec
 import androidx.appfunctions.metadata.AppFunctionMetadata
 import androidx.compose.runtime.mutableStateListOf
@@ -105,11 +105,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _currentModelTag = MutableStateFlow("ChatBot")
     val currentModelTag: StateFlow<String> = _currentModelTag.asStateFlow()
 
-    private val appFunctionManagerCompat: AppFunctionManagerCompat =
-        AppFunctionManagerCompat.getInstance(application)
+    private val appFunctionManager: AppFunctionManager =
+        AppFunctionManager.getInstance(application)
             ?: throw UnsupportedOperationException("App functions not supported on this device.")
 
-    private val functionExecutor = GenericFunctionExecutor(appFunctionManagerCompat)
+    private val functionExecutor = GenericFunctionExecutor(appFunctionManager)
 
     private var availableFunctions: Map<String, Pair<FunctionDefinition, AppFunctionMetadata>> =
         emptyMap()
@@ -357,7 +357,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 packageNames = setOf(TARGET_PACKAGE),
                 schemaCategory = TARGET_SCHEMA_CATEGORY,
             )
-            appFunctionManagerCompat
+            appFunctionManager
                 .observeAppFunctions(searchSpec)
                 .collect { packageList ->
                     packageList.firstOrNull()?.let { metadata ->
