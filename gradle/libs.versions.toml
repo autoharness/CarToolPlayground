@@ -1,14 +1,14 @@
 [versions]
-agp = "8.11.0"
-kotlin = "2.1.21"
-coreKtx = "1.12.0"
+agp = "9.2.1"
+kotlin = "2.3.21"
+coreKtx = "1.18.0"
 spotless = "7.1.0"
 lifecycleRuntimeKtx = "2.6.1"
 activityCompose = "1.8.0"
 composeBom = "2024.09.00"
 materialIconsExtended = "1.7.8"
-appfunctions = "1.0.0-alpha08"
-ksp = "2.1.21-2.0.1"
+appfunctions = "1.0.0-alpha09"
+ksp = "2.3.6"
 kotlinxCoroutinesGuava = "1.10.2"
 kotlinxSerializationJson = "1.8.1"
 kotlinxSerializationPlugin = "2.2.0"
@@ -38,7 +38,6 @@ litertlm = { group = "com.google.ai.edge.litertlm", name = "litertlm-android", v
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 spotless = { id = "com.diffplug.gradle.spotless", version.ref = "spotless" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

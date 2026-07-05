@@ -59,6 +59,8 @@ adb shell "sed -i 's/ro.control_privapp_permissions=enforce/ro.control_privapp_p
 ```
 adb push app-debug.apk /system/priv-app
 adb reboot
+# On Android 17 / API 37+, add the package to allowlist.
+adb shell cmd allowlist add-package-multimap 2 org.autoharness.cartoolplayground:8a302416393706d5937dd57c58d7b0f414941735e6ba5cf201b55e595f9ac50d "'*'"
 ```
 
 3. **Grant Runtime Permissions:** To simplify development (a admittedly bad practice 😜), the app skips runtime permission requests. Instead, using `adb install -g` to directly grant all necessary runtime permissions:
