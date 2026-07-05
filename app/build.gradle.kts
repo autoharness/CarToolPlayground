@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlin.serialization)
@@ -9,12 +8,14 @@ plugins {
 
 android {
     namespace = "org.autoharness.cartoolplayground"
-    compileSdk = 36
+    compileSdk {
+        version = release(37)
+    }
 
     defaultConfig {
         applicationId = "org.autoharness.cartoolplayground"
         minSdk = 36
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 1
         versionName = "1.0"
 
@@ -25,7 +26,16 @@ android {
             abiFilters += listOf("arm64-v8a", "x86_64")
         }
     }
-
+    signingConfigs {
+        getByName("debug") {
+            storeFile = rootDir.resolve("keystore/debug.keystore")
+            storePassword = "debugKey"
+            keyAlias = "debugKey"
+            keyPassword = "debugKey"
+            enableV1Signing = true
+            enableV2Signing = true
+        }
+    }
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -36,11 +46,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
-    kotlinOptions {
-        jvmTarget = "11"
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     buildFeatures {
         compose = true
