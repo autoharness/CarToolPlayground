@@ -46,7 +46,7 @@ class LiteRtLmInference(private val context: Context) : LlmInferenceEngine {
     override suspend fun load(options: LlmInferenceOptions) {
         withContext(singleThreadDispatcher) {
             cleanUp()
-            val preferredBackend = Backend.CPU
+            val preferredBackend = Backend.CPU()
 
             val engine = Engine(
                 EngineConfig(
